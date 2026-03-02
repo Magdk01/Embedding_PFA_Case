@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from embedding_pfa_case.api import app
 
 EMBED_URL = "/embed"
+SIMILARITY_URL = "/similarity"
 HEALTH_URL = "/health"
 
 
@@ -111,4 +112,75 @@ class TestEmbedValidation:
     def test_too_many_texts(self, client: TestClient) -> None:
         texts = ["text"] * 65
         resp = client.post(EMBED_URL, json={"texts": texts})
+        assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Similarity endpoint — happy path
+# ---------------------------------------------------------------------------
+
+
+class TestSimilarityHappyPath:
+    def test_single_query_single_passage(self, client: TestClient) -> None:
+        resp = client.post(SIMILARITY_URL, json={"queries": ["hello"], "passages": ["world"]})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["num_queries"] == 1
+        assert body["num_passages"] == 1
+        assert len(body["scores"]) == 1
+        assert len(body["scores"][0]) == 1
+
+    def test_multiple_queries_and_passages(self, client: TestClient) -> None:
+        resp = client.post(
+            SIMILARITY_URL,
+            json={"queries": ["first query", "second query"], "passages": ["passage a", "passage b", "passage c"]},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["num_queries"] == 2
+        assert body["num_passages"] == 3
+        assert len(body["scores"]) == 2
+        assert all(len(row) == 3 for row in body["scores"])
+
+    def test_matched_query_scores_higher(self, client: TestClient) -> None:
+        """A protein query should score higher against a protein passage than an unrelated one."""
+        resp = client.post(
+            SIMILARITY_URL,
+            json={
+                "queries": ["how much protein should a female eat"],
+                "passages": [
+                    "The CDC recommends 46 grams of protein per day for women.",
+                    "It is raining outside today.",
+                ],
+            },
+        )
+        assert resp.status_code == 200
+        scores = resp.json()["scores"]
+        assert scores[0][0] > scores[0][1]
+
+
+# ---------------------------------------------------------------------------
+# Similarity endpoint — validation
+# ---------------------------------------------------------------------------
+
+
+class TestSimilarityValidation:
+    def test_missing_queries(self, client: TestClient) -> None:
+        resp = client.post(SIMILARITY_URL, json={"passages": ["text"]})
+        assert resp.status_code == 422
+
+    def test_missing_passages(self, client: TestClient) -> None:
+        resp = client.post(SIMILARITY_URL, json={"queries": ["text"]})
+        assert resp.status_code == 422
+
+    def test_empty_queries_list(self, client: TestClient) -> None:
+        resp = client.post(SIMILARITY_URL, json={"queries": [], "passages": ["text"]})
+        assert resp.status_code == 422
+
+    def test_empty_passages_list(self, client: TestClient) -> None:
+        resp = client.post(SIMILARITY_URL, json={"queries": ["text"], "passages": []})
+        assert resp.status_code == 422
+
+    def test_disallowed_characters_in_query(self, client: TestClient) -> None:
+        resp = client.post(SIMILARITY_URL, json={"queries": ["<bad>"], "passages": ["text"]})
         assert resp.status_code == 422

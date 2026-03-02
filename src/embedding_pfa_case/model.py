@@ -53,6 +53,25 @@ class EmbeddingModel:
 
         return embeddings.tolist()
 
+    def similarity(self, queries: list[str], passages: list[str]) -> list[list[float]]:
+        """Compute cosine similarity scores between queries and passages.
+
+        Embeds queries with "query: " prefix and passages with "passage: " prefix,
+        then returns a score matrix scaled by 100 (matching the HuggingFace example).
+
+        Args:
+            queries: Raw query texts.
+            passages: Raw passage/document texts.
+
+        Returns:
+            Matrix of shape [len(queries) x len(passages)] where
+            scores[i][j] = cosine_similarity(query_i, passage_j) * 100.
+        """
+        query_emb = torch.tensor(self.embed(queries, prefix="query"))
+        passage_emb = torch.tensor(self.embed(passages, prefix="passage"))
+        scores = (query_emb @ passage_emb.T) * 100
+        return scores.tolist()
+
 
 if __name__ == "__main__":
     texts = ["how much protein should a female eat", "hvad er vejret i dag"]

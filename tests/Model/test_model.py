@@ -50,11 +50,10 @@ def passage_embeddings(model: EmbeddingModel) -> list[list[float]]:
     return model.embed([ENGLISH_PASSAGE, CHINESE_PASSAGE], prefix="passage")
 
 
-def _similarity_matrix(queries: list[list[float]], passages: list[list[float]]) -> torch.Tensor:
-    """Compute cosine similarity matrix scaled by 100 (matching HuggingFace example)."""
-    q = torch.tensor(queries)
-    p = torch.tensor(passages)
-    return (q @ p.T) * 100
+@pytest.fixture(scope="module")
+def similarity_scores(model: EmbeddingModel) -> list[list[float]]:
+    """Compute similarity using the model's built-in method."""
+    return model.similarity(queries=[ENGLISH_QUERY, CHINESE_QUERY], passages=[ENGLISH_PASSAGE, CHINESE_PASSAGE])
 
 
 class TestEmbeddingDimensions:
@@ -90,8 +89,8 @@ class TestEmbeddingNormalization:
             assert norm == pytest.approx(1.0, abs=1e-5)
 
 
-class TestCrossLingualSimilarity:
-    """Verify the model correctly matches queries to same-language passages.
+class TestSimilarity:
+    """Verify model.similarity() matches queries to same-language passages.
 
     Reference scores from the HuggingFace example:
         EN query vs EN passage: ~90.81
@@ -100,12 +99,13 @@ class TestCrossLingualSimilarity:
         ZH query vs ZH passage: ~88.76
     """
 
-    def test_similarity_scores_approximate_reference(
-        self, query_embeddings: list[list[float]], passage_embeddings: list[list[float]]
-    ) -> None:
-        """Check scores are within a reasonable tolerance of the reference values."""
-        scores = _similarity_matrix(query_embeddings, passage_embeddings)
-        assert scores[0, 0].item() == pytest.approx(90.81, abs=1.0)
-        assert scores[0, 1].item() == pytest.approx(72.13, abs=1.0)
-        assert scores[1, 0].item() == pytest.approx(70.54, abs=1.0)
-        assert scores[1, 1].item() == pytest.approx(88.76, abs=1.0)
+    def test_returns_correct_matrix_shape(self, similarity_scores: list[list[float]]) -> None:
+        assert len(similarity_scores) == 2
+        assert len(similarity_scores[0]) == 2
+        assert len(similarity_scores[1]) == 2
+
+    def test_scores_approximate_reference(self, similarity_scores: list[list[float]]) -> None:
+        assert similarity_scores[0][0] == pytest.approx(90.81, abs=1.0)
+        assert similarity_scores[0][1] == pytest.approx(72.13, abs=1.0)
+        assert similarity_scores[1][0] == pytest.approx(70.54, abs=1.0)
+        assert similarity_scores[1][1] == pytest.approx(88.76, abs=1.0)

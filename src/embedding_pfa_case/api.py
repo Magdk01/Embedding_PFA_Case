@@ -62,6 +62,35 @@ class EmbedResponse(BaseModel):
     dim: int = Field(description="Dimensionality of each embedding vector.")
 
 
+class SimilarityRequest(BaseModel):
+    """Request body for the /similarity endpoint."""
+
+    queries: list[EmbedText] = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        description="Query texts (1–64 items). Automatically prefixed with 'query: '.",
+        examples=[["how much protein should a female eat"]],
+    )
+    passages: list[EmbedText] = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        description="Passage texts (1–64 items). Automatically prefixed with 'passage: '.",
+        examples=[["The CDC recommends 46 grams of protein per day for women."]],
+    )
+
+
+class SimilarityResponse(BaseModel):
+    """Response body from the /similarity endpoint."""
+
+    scores: list[list[float]] = Field(
+        description="Similarity matrix: scores[i][j] = cosine_similarity(query_i, passage_j) * 100."
+    )
+    num_queries: int = Field(description="Number of queries.")
+    num_passages: int = Field(description="Number of passages.")
+
+
 app = FastAPI(
     title="Embedding API — multilingual-e5-large",
     description=(
@@ -103,4 +132,31 @@ async def embed(request: EmbedRequest) -> EmbedResponse:
         embeddings=embeddings,
         num_texts=len(embeddings),
         dim=len(embeddings[0]),
+    )
+
+
+@app.post("/similarity", response_model=SimilarityResponse, summary="Compute query-passage similarity")
+async def similarity(request: SimilarityRequest) -> SimilarityResponse:
+    """Compute cosine similarity between queries and passages.
+
+    Returns a score matrix where scores[i][j] is the similarity between
+    query i and passage j, scaled by 100.
+    """
+    if embedding_model is None:
+        raise HTTPException(status_code=503, detail="Model is not loaded yet")
+
+    logger.info(f"Similarity request: {len(request.queries)} query(s) x {len(request.passages)} passage(s)")
+
+    try:
+        scores = embedding_model.similarity(request.queries, request.passages)
+    except Exception as e:
+        logger.error(f"Similarity computation failed: {e}")
+        raise HTTPException(status_code=500, detail="Similarity computation failed") from e
+
+    logger.info(f"Similarity response: {len(scores)}x{len(scores[0])} score matrix")
+
+    return SimilarityResponse(
+        scores=scores,
+        num_queries=len(request.queries),
+        num_passages=len(request.passages),
     )
