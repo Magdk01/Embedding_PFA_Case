@@ -177,3 +177,6 @@ cython_debug/
 #.idea/
 
 AGENTS.md
+
+# Application logs
+logs/
