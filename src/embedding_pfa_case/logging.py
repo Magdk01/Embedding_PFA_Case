@@ -18,10 +18,7 @@ class InterceptHandler(logging.Handler):
     """Send standard library logging (e.g. uvicorn) through loguru with the same format."""
 
     def emit(self, record: logging.LogRecord) -> None:
-        try:
-            level = logger.level(record.levelname).name
-        except ValueError:
-            level = record.levelno
+        level = logging.getLevelName(record.levelno)
         message = f"{record.name} | {record.getMessage()}"
         logger.opt(depth=6, exception=record.exc_info).log(level, message)
 
