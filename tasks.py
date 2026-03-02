@@ -65,6 +65,22 @@ def run_model(c):
     c.run("uv run python -m embedding_pfa_case.model")
 
 
+DOCKER_IMAGE = "embedding-api"
+DOCKER_FILE = "dockerfiles/api.dockerfile"
+
+
+@task
+def docker_build(c, tag=DOCKER_IMAGE):
+    """Build the Docker image."""
+    c.run(f"docker build -f {DOCKER_FILE} -t {tag} .")
+
+
+@task
+def docker_run(c, tag=DOCKER_IMAGE, port=8000):
+    """Run the API in a Docker container."""
+    c.run(f"docker run --rm -p {port}:8000 {tag}")
+
+
 @task(format_check, lint_check, typecheck, test)
 def check(c):
     """Run format-check, lint-check, typecheck, and tests."""

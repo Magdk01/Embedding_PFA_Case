@@ -1,14 +1,13 @@
-FROM ghcr.io/astral-sh/uv:python3.12-alpine AS base
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS base
 
-COPY uv.lock uv.lock
-COPY pyproject.toml pyproject.toml
+WORKDIR /app
 
-RUN uv sync --frozen --no-install-project
+COPY uv.lock pyproject.toml README.md LICENSE ./
+
+RUN uv sync --frozen --no-install-project --no-dev
 
 COPY src src/
-COPY README.md README.md
-COPY LICENSE LICENSE
 
-RUN uv sync --frozen
+RUN uv sync --frozen --no-dev
 
-# ENTRYPOINT ["uv", "run", "uvicorn", "src.embedding_pfa_case.api:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["uv", "run", "uvicorn", "embedding_pfa_case.api:app", "--host", "0.0.0.0", "--port", "8000"]

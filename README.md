@@ -57,6 +57,13 @@ uv run invoke check        # Run formatting, linting, type checks, and tests
 uv run invoke serve        # Start the API server
 ```
 
+## Docker
+First ensure Docker Engine is running.
+```bash
+uv run invoke docker_build
+uv run invoke docker_run
+```
+API is then served at localhost:8000/
 
 
 ## Project structure
