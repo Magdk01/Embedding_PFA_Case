@@ -53,15 +53,17 @@ def typecheck(c):
 
 
 @task
-def serve(c, host="0.0.0.0", port=8000, reload=False):
+def serve(c, host="127.0.0.1", port=8001, reload=False):
     """Start the API server."""
     reload_flag = " --reload" if reload else ""
     c.run(f"uv run uvicorn embedding_pfa_case.api:app --host {host} --port {port}{reload_flag}")
+
 
 @task
 def run_model(c):
     """Run the model."""
     c.run("uv run python -m embedding_pfa_case.model")
+
 
 @task(format_check, lint_check, typecheck, test)
 def check(c):
