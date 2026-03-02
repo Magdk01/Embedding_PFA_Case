@@ -58,12 +58,26 @@ uv run invoke serve        # Start the API server
 ```
 
 ## Docker
+Project supports Docker, for reproducibility as well as containerization if needed for cloud deployment.
+
+### Quick start
 First ensure Docker Engine is running.
 ```bash
 uv run invoke docker_build
 uv run invoke docker_run
 ```
-API is then served at localhost:8000/
+API is then served at **http://localhost:8000** (Swagger UI: http://localhost:8000/docs).
+
+### Image name and tags
+- **Default image name:** `embedding-api`. The invoke tasks build and run this tag by default.
+- **List the image:** `docker images embedding-api`
+- **Custom tag (e.g. for a version):**
+  ```bash
+  uv run invoke docker_build --tag embedding-api:v0.1.0
+  uv run invoke docker_run --tag embedding-api:v0.1.0
+  ```
+- **Custom port:** `uv run invoke docker_run --port 9000` (maps host 9000 → container 8000)
+- **Run without invoke:** `docker run --rm -p 8000:8000 embedding-api`
 
 
 ## Project structure
