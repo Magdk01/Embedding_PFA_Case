@@ -100,7 +100,6 @@ class TestCrossLingualSimilarity:
         ZH query vs ZH passage: ~88.76
     """
 
-
     def test_similarity_scores_approximate_reference(
         self, query_embeddings: list[list[float]], passage_embeddings: list[list[float]]
     ) -> None:
@@ -110,5 +109,3 @@ class TestCrossLingualSimilarity:
         assert scores[0, 1].item() == pytest.approx(72.13, abs=1.0)
         assert scores[1, 0].item() == pytest.approx(70.54, abs=1.0)
         assert scores[1, 1].item() == pytest.approx(88.76, abs=1.0)
-
-
