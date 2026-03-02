@@ -52,6 +52,11 @@ def typecheck(c):
     c.run("uv run mypy .")
 
 
+@task
+def serve(c, host="0.0.0.0", port=8000, reload=False):
+    """Start the API server."""
+    reload_flag = " --reload" if reload else ""
+    c.run(f"uv run uvicorn embedding_pfa_case.api:app --host {host} --port {port}{reload_flag}")
 
 @task
 def run_model(c):
