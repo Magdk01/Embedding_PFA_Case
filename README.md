@@ -79,6 +79,10 @@ API is then served at **http://localhost:8000** (Swagger UI: http://localhost:80
 - **Custom port:** `uv run invoke docker_run --port 9000` (maps host 9000 → container 8000)
 - **Run without invoke:** `docker run --rm -p 8000:8000 embedding-api`
 
+### Docker Hub
+Successful release images are available and named according to their tags at:
+[Docker Hub — magdk01/embedding-api](https://hub.docker.com/repository/docker/magdk01/embedding-api/general)
+
 
 ## Project structure
 
@@ -86,8 +90,7 @@ API is then served at **http://localhost:8000** (Swagger UI: http://localhost:80
 ├── .github/                      # CI workflows and Dependabot
 │   ├── dependabot.yaml
 │   └── workflows/
-│       ├── linting.yaml
-│       └── tests.yaml
+│       └── release.yaml
 ├── dockerfiles/
 │   └── api.dockerfile
 ├── src/embedding_pfa_case/       # Source code
