@@ -50,7 +50,7 @@ class SimilarityRequest(BaseModel):
         min_length=1,
         max_length=64,
         description="Query texts (1–64 items). Automatically prefixed with 'query: '.",
-        examples=[["how much protein should a female eat", "What is the capital of denmark)"]],
+        examples=[["how much protein should a female eat", "What is the capital of denmark?"]],
     )
     passages: list[EmbedText] = Field(
         ...,
