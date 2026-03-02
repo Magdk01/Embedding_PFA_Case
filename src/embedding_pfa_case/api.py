@@ -1,37 +1,17 @@
-import sys
-from contextlib import asynccontextmanager
-from typing import Annotated, AsyncGenerator, Literal
+"""API route handlers and request/response schemas."""
+
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from embedding_pfa_case.model import EmbeddingModel
-
-logger.remove()
-logger.add(sys.stderr, level="INFO", format="{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | {message}")
-logger.add("logs/api.log", level="DEBUG", rotation="100 MB", retention="30 days")
-
 ENGLISH_DANISH_PATTERN = r"^[A-Za-zÆØÅæøå0-9\s.,;!?:'\-]+$"
 
-# We assign max length based on the token truncation
 EmbedText = Annotated[
     str,
     Field(min_length=1, max_length=512, pattern=ENGLISH_DANISH_PATTERN),
 ]
-
-embedding_model: EmbeddingModel | None = None
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Load the model on startup, clean up on shutdown."""
-    global embedding_model
-    logger.info("Starting up — loading embedding model...")
-    embedding_model = EmbeddingModel()
-    logger.info("Model ready, accepting requests")
-    yield
-    logger.info("Shutting down")
 
 
 class EmbedRequest(BaseModel):
@@ -70,14 +50,14 @@ class SimilarityRequest(BaseModel):
         min_length=1,
         max_length=64,
         description="Query texts (1–64 items). Automatically prefixed with 'query: '.",
-        examples=[["how much protein should a female eat"]],
+        examples=[["how much protein should a female eat", "What is the capital of denmark)"]],
     )
     passages: list[EmbedText] = Field(
         ...,
         min_length=1,
         max_length=64,
         description="Passage texts (1–64 items). Automatically prefixed with 'passage: '.",
-        examples=[["The CDC recommends 46 grams of protein per day for women."]],
+        examples=[["The CDC recommends 46 grams of protein per day for women.", "Copenhagen", "Stockholm"]],
     )
 
 
@@ -91,72 +71,67 @@ class SimilarityResponse(BaseModel):
     num_passages: int = Field(description="Number of passages.")
 
 
-app = FastAPI(
-    title="Embedding API — multilingual-e5-large",
-    description=(
-        "API for generating text embeddings using "
-        "[multilingual-e5-large](https://huggingface.co/intfloat/multilingual-e5-large). "
-        "Supports English and Danish text with automatic query/passage prefixing."
-    ),
-    version="0.0.1",
-    lifespan=lifespan,
-)
+def register_routes(app: FastAPI) -> None:
+    """Register all API route handlers on the given app."""
 
+    @app.get("/health", summary="Health check")
+    async def health() -> dict:
+        """Check whether the API is up and the model is loaded."""
+        from embedding_pfa_case.app import embedding_model
 
-@app.get("/health", summary="Health check")
-async def health() -> dict:
-    """Check whether the API is up and the model is loaded."""
-    return {"status": "ok", "model_loaded": embedding_model is not None}
+        return {"status": "ok", "model_loaded": embedding_model is not None}
 
+    @app.post("/embed", response_model=EmbedResponse, summary="Generate text embeddings")
+    async def embed(request: EmbedRequest) -> EmbedResponse:
+        """Generate normalized embeddings for the provided texts.
 
-@app.post("/embed", response_model=EmbedResponse, summary="Generate text embeddings")
-async def embed(request: EmbedRequest) -> EmbedResponse:
-    """Generate normalized embeddings for the provided texts.
+        The model automatically prepends the appropriate prefix based on `input_type`.
+        """
+        from embedding_pfa_case.app import embedding_model
 
-    The model automatically prepends the appropriate prefix based on `input_type`.
-    """
-    if embedding_model is None:
-        raise HTTPException(status_code=503, detail="Model is not loaded yet")
+        if embedding_model is None:
+            raise HTTPException(status_code=503, detail="Model is not loaded yet")
 
-    logger.info(f"Embed request: {len(request.texts)} text(s), input_type={request.input_type}")
+        logger.info(f"Embed request: {len(request.texts)} text(s), input_type={request.input_type}")
 
-    try:
-        embeddings = embedding_model.embed(request.texts, prefix=request.input_type)
-    except Exception as e:
-        logger.error(f"Embedding inference failed: {e}")
-        raise HTTPException(status_code=500, detail="Embedding inference failed") from e
+        try:
+            embeddings = embedding_model.embed(request.texts, prefix=request.input_type)
+        except Exception as e:
+            logger.error(f"Embedding inference failed: {e}")
+            raise HTTPException(status_code=500, detail="Embedding inference failed") from e
 
-    logger.info(f"Embed response: {len(embeddings)} embedding(s), dim={len(embeddings[0])}")
+        logger.info(f"Embed response: {len(embeddings)} embedding(s), dim={len(embeddings[0])}")
 
-    return EmbedResponse(
-        embeddings=embeddings,
-        num_texts=len(embeddings),
-        dim=len(embeddings[0]),
-    )
+        return EmbedResponse(
+            embeddings=embeddings,
+            num_texts=len(embeddings),
+            dim=len(embeddings[0]),
+        )
 
+    @app.post("/similarity", response_model=SimilarityResponse, summary="Compute query-passage similarity")
+    async def similarity(request: SimilarityRequest) -> SimilarityResponse:
+        """Compute cosine similarity between queries and passages.
 
-@app.post("/similarity", response_model=SimilarityResponse, summary="Compute query-passage similarity")
-async def similarity(request: SimilarityRequest) -> SimilarityResponse:
-    """Compute cosine similarity between queries and passages.
+        Returns a score matrix where scores[i][j] is the similarity between
+        query i and passage j, scaled by 100.
+        """
+        from embedding_pfa_case.app import embedding_model
 
-    Returns a score matrix where scores[i][j] is the similarity between
-    query i and passage j, scaled by 100.
-    """
-    if embedding_model is None:
-        raise HTTPException(status_code=503, detail="Model is not loaded yet")
+        if embedding_model is None:
+            raise HTTPException(status_code=503, detail="Model is not loaded yet")
 
-    logger.info(f"Similarity request: {len(request.queries)} query(s) x {len(request.passages)} passage(s)")
+        logger.info(f"Similarity request: {len(request.queries)} query(s) x {len(request.passages)} passage(s)")
 
-    try:
-        scores = embedding_model.similarity(request.queries, request.passages)
-    except Exception as e:
-        logger.error(f"Similarity computation failed: {e}")
-        raise HTTPException(status_code=500, detail="Similarity computation failed") from e
+        try:
+            scores = embedding_model.similarity(request.queries, request.passages)
+        except Exception as e:
+            logger.error(f"Similarity computation failed: {e}")
+            raise HTTPException(status_code=500, detail="Similarity computation failed") from e
 
-    logger.info(f"Similarity response: {len(scores)}x{len(scores[0])} score matrix")
+        logger.info(f"Similarity response: {len(scores)}x{len(scores[0])} score matrix")
 
-    return SimilarityResponse(
-        scores=scores,
-        num_queries=len(request.queries),
-        num_passages=len(request.passages),
-    )
+        return SimilarityResponse(
+            scores=scores,
+            num_queries=len(request.queries),
+            num_passages=len(request.passages),
+        )

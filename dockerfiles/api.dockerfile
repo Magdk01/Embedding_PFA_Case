@@ -10,4 +10,4 @@ COPY src src/
 
 RUN uv sync --frozen --no-dev
 
-ENTRYPOINT ["uv", "run", "uvicorn", "embedding_pfa_case.api:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["uv", "run", "uvicorn", "embedding_pfa_case.app:app", "--host", "0.0.0.0", "--port", "8000"]

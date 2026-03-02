@@ -56,7 +56,7 @@ def typecheck(c):
 def serve(c, host="127.0.0.1", port=8001, reload=False):
     """Start the API server."""
     reload_flag = " --reload" if reload else ""
-    c.run(f"uv run uvicorn embedding_pfa_case.api:app --host {host} --port {port}{reload_flag}")
+    c.run(f"uv run uvicorn embedding_pfa_case.app:app --host {host} --port {port}{reload_flag}")
 
 
 @task

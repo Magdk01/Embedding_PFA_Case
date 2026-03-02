@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from embedding_pfa_case.api import app
+from embedding_pfa_case.app import app
 
 EMBED_URL = "/embed"
 SIMILARITY_URL = "/similarity"
