@@ -53,8 +53,9 @@ class EmbeddingModel:
 
         return embeddings.tolist()
 
+
 if __name__ == "__main__":
     texts = ["how much protein should a female eat", "hvad er vejret i dag"]
     model = EmbeddingModel()
-    embeddings = model.embed(texts,prefix=["passage","query"])
+    embeddings = model.embed(texts, prefix="query")
     print(embeddings)
